@@ -12,16 +12,16 @@ export class UsersService {
     private userModel: Model<UserDocument>,
   ) { }
 
-  async create(createUserDto: CreateUserDto): Promise<UserDocument> {
+  async create(createUserDto: CreateUserDto): Promise<User> {
     const user = new this.userModel(createUserDto);
     return user.save();
   }
 
-  async findAll(): Promise<UserDocument[]> {
+  async findAll(): Promise<User[]> {
     return this.userModel.find().exec();
   }
 
-  async findById(id: string): Promise<UserDocument> {
+  async findById(id: string): Promise<User> {
     const user = await this.userModel.findById(id).exec();
     if (!user) {
       throw new NotFoundException('User not found');
@@ -29,11 +29,11 @@ export class UsersService {
     return user;
   }
 
-  async findByEmail(email: string): Promise<UserDocument | null> {
+  async findByEmail(email: string): Promise<User | null> {
     return this.userModel.findOne({ email }).exec();
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<UserDocument> {
+  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.userModel
       .findByIdAndUpdate(id, updateUserDto, { new: true })
       .exec();
@@ -48,7 +48,7 @@ export class UsersService {
   async saveGoogleRefreshToken(
     userId: string,
     refreshToken: string,
-  ): Promise<UserDocument> {
+  ): Promise<User> {
     return this.update(userId, {
       googleRefreshToken: refreshToken,
     });
