@@ -7,7 +7,7 @@ import { UsersService } from '../users/users.service';
 export class CalendarService {
   constructor(
     private configService: ConfigService,
-    private usersService: UsersService, 
+    private usersService: UsersService,
   ) {}
 
   private createOAuthClient(refreshToken: string) {
@@ -23,7 +23,7 @@ export class CalendarService {
     return oauth2Client;
   }
 
-  async listUpcomingEvents(userId: string) {
+  private async getCalendar(userId: string) {
     const user = await this.usersService.findById(userId);
 
     if (!user?.googleRefreshToken) {
@@ -32,10 +32,15 @@ export class CalendarService {
 
     const oauthClient = this.createOAuthClient(user.googleRefreshToken);
 
-    const calendar = google.calendar({
+    return google.calendar({
       version: 'v3',
       auth: oauthClient,
     });
+  }
+
+  // ✅ List upcoming events
+  async listUpcomingEvents(userId: string) {
+    const calendar = await this.getCalendar(userId);
 
     const response = await calendar.events.list({
       calendarId: 'primary',
@@ -48,44 +53,87 @@ export class CalendarService {
     return response.data.items ?? [];
   }
 
-  async createEvent(
-    userId: string,
-    data: {
-      title: string;
-      description?: string;
-      start: string;
-      end: string;
-    },
-  ) {
-    const user = await this.usersService.findById(userId);
+  // ✅ Get event by ID
+  async getEvent(userId: string, eventId: string) {
+    const calendar = await this.getCalendar(userId);
 
-    if (!user?.googleRefreshToken) {
-      throw new BadRequestException('Google not connected');
-    }
-
-    const oauthClient = this.createOAuthClient(user.googleRefreshToken);
-
-    const calendar = google.calendar({
-      version: 'v3',
-      auth: oauthClient,
+    const response = await calendar.events.get({
+      calendarId: 'primary',
+      eventId,
     });
 
-    const event = {
-      summary: data.title,
-      description: data.description,
-      start: {
-        dateTime: data.start,
-        timeZone: 'Asia/Kolkata',
-      },
-      end: {
-        dateTime: data.end,
-        timeZone: 'Asia/Kolkata',
-      },
-    };
+    return response.data;
+  }
+
+  // ✅ Create event
+  async createEvent(userId: string, data: any) {
+    const calendar = await this.getCalendar(userId);
 
     const response = await calendar.events.insert({
       calendarId: 'primary',
-      requestBody: event,
+      requestBody: {
+        summary: data.title,
+        description: data.description,
+        start: {
+          dateTime: data.start,
+          timeZone: 'Asia/Kolkata',
+        },
+        end: {
+          dateTime: data.end,
+          timeZone: 'Asia/Kolkata',
+        },
+      },
+    });
+
+    return response.data;
+  }
+
+  // ✅ Update event
+  async updateEvent(userId: string, eventId: string, data: any) {
+    const calendar = await this.getCalendar(userId);
+
+    const response = await calendar.events.update({
+      calendarId: 'primary',
+      eventId,
+      requestBody: {
+        summary: data.title,
+        description: data.description,
+        start: {
+          dateTime: data.start,
+          timeZone: 'Asia/Kolkata',
+        },
+        end: {
+          dateTime: data.end,
+          timeZone: 'Asia/Kolkata',
+        },
+      },
+    });
+
+    return response.data;
+  }
+
+  // ✅ Delete event
+  async deleteEvent(userId: string, eventId: string) {
+    const calendar = await this.getCalendar(userId);
+
+    await calendar.events.delete({
+      calendarId: 'primary',
+      eventId,
+    });
+
+    return { message: 'Event deleted successfully' };
+  }
+
+  // ✅ Free/Busy check
+  async checkAvailability(userId: string, timeMin: string, timeMax: string) {
+    const calendar = await this.getCalendar(userId);
+
+    const response = await calendar.freebusy.query({
+      requestBody: {
+        timeMin,
+        timeMax,
+        items: [{ id: 'primary' }],
+      },
     });
 
     return response.data;
