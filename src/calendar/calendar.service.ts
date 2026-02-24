@@ -1,39 +1,43 @@
-import { Injectable } from '@nestjs/common';
-import { google, calendar_v3 } from 'googleapis';
+import { Injectable, BadRequestException } from '@nestjs/common';
+import { google } from 'googleapis';
 import { ConfigService } from '@nestjs/config';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class CalendarService {
-  private calendar: calendar_v3.Calendar;
+  constructor(
+    private configService: ConfigService,
+    private usersService: UsersService, 
+  ) {}
 
-  constructor(private configService: ConfigService) {
-    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
-    const clientSecret = this.configService.get<string>('GOOGLE_CLIENT_SECRET');
-    const redirectUri = this.configService.get<string>('GOOGLE_REDIRECT_URI');
-    const refreshToken = this.configService.get<string>('GOOGLE_REFRESH_TOKEN');
-
-    if (!clientId || !clientSecret || !redirectUri || !refreshToken) {
-      throw new Error('Missing Google OAuth environment variables');
-    }
-
+  private createOAuthClient(refreshToken: string) {
     const oauth2Client = new google.auth.OAuth2(
-      clientId,
-      clientSecret,
-      redirectUri,
+      this.configService.get('GOOGLE_CLIENT_ID'),
+      this.configService.get('GOOGLE_CLIENT_SECRET'),
     );
 
     oauth2Client.setCredentials({
       refresh_token: refreshToken,
     });
 
-    this.calendar = google.calendar({
-      version: 'v3',
-      auth: oauth2Client,
-    });
+    return oauth2Client;
   }
 
-  async listUpcomingEvents() {
-    const response = await this.calendar.events.list({
+  async listUpcomingEvents(userId: string) {
+    const user = await this.usersService.findById(userId);
+
+    if (!user?.googleRefreshToken) {
+      throw new BadRequestException('Google not connected');
+    }
+
+    const oauthClient = this.createOAuthClient(user.googleRefreshToken);
+
+    const calendar = google.calendar({
+      version: 'v3',
+      auth: oauthClient,
+    });
+
+    const response = await calendar.events.list({
       calendarId: 'primary',
       timeMin: new Date().toISOString(),
       maxResults: 10,
@@ -41,15 +45,31 @@ export class CalendarService {
       orderBy: 'startTime',
     });
 
-    return response.data.items;
+    return response.data.items ?? [];
   }
 
-  async createEvent(data: {
-    title: string;
-    description?: string;
-    start: string;
-    end: string;
-  }) {
+  async createEvent(
+    userId: string,
+    data: {
+      title: string;
+      description?: string;
+      start: string;
+      end: string;
+    },
+  ) {
+    const user = await this.usersService.findById(userId);
+
+    if (!user?.googleRefreshToken) {
+      throw new BadRequestException('Google not connected');
+    }
+
+    const oauthClient = this.createOAuthClient(user.googleRefreshToken);
+
+    const calendar = google.calendar({
+      version: 'v3',
+      auth: oauthClient,
+    });
+
     const event = {
       summary: data.title,
       description: data.description,
@@ -63,7 +83,7 @@ export class CalendarService {
       },
     };
 
-    const response = await this.calendar.events.insert({
+    const response = await calendar.events.insert({
       calendarId: 'primary',
       requestBody: event,
     });

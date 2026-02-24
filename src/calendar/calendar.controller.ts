@@ -1,21 +1,24 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req } from '@nestjs/common';
 import { CalendarService } from './calendar.service';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CreateEventDto } from './dto/create-event.dto';
+import { UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 
 @ApiTags('Calendar')
 @Controller('calendar')
+@ApiBearerAuth('access-token')
+@UseGuards(AuthGuard('jwt'))
 export class CalendarController {
   constructor(private readonly calendarService: CalendarService) {}
 
   @Get('events')
-  async getEvents() {
-    return this.calendarService.listUpcomingEvents();
+  async getEvents(@Req() req) {
+    return this.calendarService.listUpcomingEvents(req.user.id);
   }
 
   @Post('create')
-  @ApiOperation({ summary: 'Create calendar event manually' })
-  async createEvent(@Body() body: CreateEventDto) {
-    return this.calendarService.createEvent(body);
+  async createEvent(@Req() req, @Body() body: CreateEventDto) {
+    return this.calendarService.createEvent(req.user.id, body);
   }
 }
