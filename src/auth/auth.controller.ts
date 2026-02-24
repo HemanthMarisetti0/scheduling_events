@@ -11,7 +11,7 @@ import { Response } from 'express';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Get('google')
   googleLogin(@Res() res: Response) {
@@ -22,7 +22,18 @@ export class AuthController {
   @Get('google/callback')
   async googleCallback(
     @Query('code') code: string,
+    @Res() res: Response,
   ) {
-    return this.authService.handleCallback(code);
+    const { access_token } =
+      await this.authService.handleCallback(code);
+
+    const frontendUrl =
+      process.env.NODE_ENV === 'production'
+        ? process.env.FRONTEND_PROD_URL
+        : process.env.FRONTEND_DEV_URL;
+
+    return res.redirect(
+      `${frontendUrl}/login-success?token=${access_token}`,
+    );
   }
 }
