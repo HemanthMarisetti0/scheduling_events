@@ -3,6 +3,8 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { google } from 'googleapis';
 import * as dotenv from 'dotenv';
+import { SuccessResponseInterceptor } from './interceptors/success-response.interceptor';
+import { GlobalExceptionFilter } from './interceptors/global-exception.filter';
 
 dotenv.config();
 
@@ -27,6 +29,10 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
+  app.useGlobalInterceptors(new SuccessResponseInterceptor());
+
+  app.useGlobalFilters(new GlobalExceptionFilter());
+
   const config = new DocumentBuilder()
     .setTitle('AI Scheduler API')
     .setDescription('Single-user AI scheduling agent using Gemini + Google Calendar')
@@ -44,7 +50,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 4000;
   await app.listen(port);
 }
 bootstrap();

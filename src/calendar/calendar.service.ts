@@ -8,7 +8,7 @@ export class CalendarService {
   constructor(
     private configService: ConfigService,
     private usersService: UsersService,
-  ) {}
+  ) { }
 
   private createOAuthClient(refreshToken: string) {
     const oauth2Client = new google.auth.OAuth2(
@@ -38,22 +38,23 @@ export class CalendarService {
     });
   }
 
-  // ✅ List upcoming events
-  async listUpcomingEvents(userId: string) {
+  async listEventsInRange(
+    userId: string,
+    start: string,
+    end: string,
+  ) {
     const calendar = await this.getCalendar(userId);
 
     const response = await calendar.events.list({
       calendarId: 'primary',
-      timeMin: new Date().toISOString(),
-      maxResults: 10,
+      timeMin: new Date(start).toISOString(),
+      timeMax: new Date(end).toISOString(),
       singleEvents: true,
       orderBy: 'startTime',
     });
 
     return response.data.items ?? [];
   }
-
-  // ✅ Get event by ID
   async getEvent(userId: string, eventId: string) {
     const calendar = await this.getCalendar(userId);
 
